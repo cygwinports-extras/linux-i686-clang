@@ -1,0 +1,22 @@
+--- origsrc/llvm-3.1.src/tools/clang/lib/Driver/ToolChains.cpp	2012-05-11 19:16:02.000000000 -0500
++++ src/llvm-3.1.src/tools/clang/lib/Driver/ToolChains.cpp	2012-07-04 23:51:09.272480100 -0500
+@@ -2165,7 +2165,9 @@ void Linux::AddClangSystemIncludeArgs(co
+     CIncludeDirs.split(dirs, ":");
+     for (SmallVectorImpl<StringRef>::iterator I = dirs.begin(), E = dirs.end();
+          I != E; ++I) {
+-      StringRef Prefix = llvm::sys::path::is_absolute(*I) ? D.SysRoot : "";
++      StringRef Prefix = llvm::sys::path::is_absolute(*I)
++                         && I->find("/lib/gcc/") == StringRef::npos
++                         ? D.SysRoot : "";
+       addExternCSystemInclude(DriverArgs, CC1Args, Prefix + *I);
+     }
+     return;
+@@ -2288,7 +2290,7 @@ void Linux::AddClangCXXStdlibIncludeArgs
+                                 DriverArgs, CC1Args)) {
+     // Gentoo is weird and places its headers inside the GCC install, so if the
+     // first attempt to find the headers fails, try this pattern.
+-    addLibStdCXXIncludePaths(InstallDir + "/include/g++-v4",
++    addLibStdCXXIncludePaths(InstallDir + "/include/c++",
+                              (GCCInstallation.getTriple().str() +
+                               GCCInstallation.getMultiarchSuffix()),
+                              DriverArgs, CC1Args);

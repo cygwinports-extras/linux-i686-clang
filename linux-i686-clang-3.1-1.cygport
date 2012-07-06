@@ -1,0 +1,52 @@
+linux_gcc_v=4.7.1
+
+TOOLCHAIN_TARGET="i686-pc-linux-gnu"
+inherit toolchain
+
+DESCRIPTION="LLVM bytecode framework and toolchain"
+HOMEPAGE="http://www.llvm.org/"
+SRC_URI="http://www.llvm.org/releases/${PV}/llvm-${PV}.src.tar.gz
+         http://www.llvm.org/releases/${PV}/clang-${PV}.src.tar.gz"
+SRC_DIR="llvm-${PV}.src"
+PATCH_URI="3.1-cross-gcclibdir.patch"
+
+CYGPORT_USE_UNSTABLE_API=1
+src_unpack_hook() {
+	rm -fr tools/clang
+	mv ../clang-${PV}.src tools/clang
+}
+
+src_compile() {
+	# leave optimization to build system
+	CFLAGS=${CFLAGS/-O[0-9]/}
+	CXXFLAGS=${CXXFLAGS/-O[0-9]/}
+
+	cd ${B}
+	cygconf --disable-assertions --enable-optimized --enable-debug-runtime \
+		--enable-debug-symbols --enable-targets=host,cpp \
+		--enable-libffi --enable-shared --disable-embed-stdcxx \
+		--with-gcc-toolchain=/usr --with-default-sysroot=${TOOLCHAIN_SYSROOT} \
+		--with-clang-resource-dir=../lib/clang/${TOOLCHAIN_TARGET}/${PV} \
+		--with-c-include-dirs=/usr/lib/gcc/${TOOLCHAIN_TARGET}/${linux_gcc_v}/include:/usr/include
+
+	# for clang-tblgen
+	mkdir -p Release+Debug/lib
+	ln -sf /usr/lib/libLLVM{Support,TableGen}.a Release+Debug/lib/
+
+	cp -f {${S},${B}}/tools/clang/Makefile
+	cygmake -C tools/clang \
+		REQUIRES_RTTI=1 TESTNAME=  \
+		LLVMLibsPaths=/usr/lib/libLLVM-${PV}.dll.a \
+		LLVM_CONFIG=/usr/bin/llvm-config
+	cygmake -C tools/clang/docs/tools man
+}
+
+src_install() {
+	cd ${B}
+	cyginstall -C tools/clang/lib/Headers \
+		PROJ_headers=${D}/usr/lib/clang/${TOOLCHAIN_TARGET}/${PV}/include
+
+	newbin Release+Debug/bin/clang.exe ${TOOLCHAIN_TARGET}-clang.exe
+	dosym ${TOOLCHAIN_TARGET}-clang.exe /usr/bin/${TOOLCHAIN_TARGET}-clang++
+	newman tools/clang/docs/tools/clang.1 ${TOOLCHAIN_TARGET}-clang.1
+}
